@@ -1,18 +1,19 @@
 import streamlit as st
-from langchain.vectorstores import FAISS
+from langchain.vectorstores import FAISS  # Adjust if necessary
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.llms import OpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
-from langchain import PromptTemplate
+from langchain.prompts import PromptTemplate
+from langchain.schema import SystemMessage, HumanMessage  # For message types
 
 # Load environment variables
 api_key = st.secrets["OPENAI_API_KEY"]
 
-# Initialize the OpenAI LLM
-llm = OpenAI(api_key=api_key, model_name="gpt-4")
+# Initialize the OpenAI Chat Model
+llm = ChatOpenAI(openai_api_key=api_key, model_name="gpt-4")
 
-# Sample RCM knowledge base (replace with your actual data)
+# Sample RCM knowledge base (you can replace this with your actual data)
 rcm_text = """
 **Revenue Cycle Management (RCM)** is the financial process used by healthcare systems to track patient care episodes from registration and appointment scheduling to the final payment of a balance. RCM unifies the business and clinical sides of healthcare by coupling administrative data with the treatment a patient receives.
 
@@ -46,7 +47,6 @@ text_splitter = CharacterTextSplitter(
     chunk_overlap=100,
     length_function=len,
 )
-
 texts = text_splitter.split_text(rcm_text)
 
 # Create embeddings for the texts
@@ -72,33 +72,28 @@ Question: {question}
 Answer:
 """
 
-prompt = PromptTemplate(
-    template=prompt_template,
-    input_variables=["context", "question"]
+PROMPT = PromptTemplate(
+    template=prompt_template, input_variables=["context", "question"]
 )
 
 # Create the RetrievalQA chain with the custom prompt
-qa_with_rag = RetrievalQA(
+qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
+    chain_type="stuff",
     retriever=retriever,
-    prompt=prompt
+    chain_type_kwargs={"prompt": PROMPT},
 )
 
 # Function to generate response without RAG
 def generate_response_without_rag(question):
     messages = [
-        {
-            "role": "system",
-            "content": "You are an expert assistant helping revenue cycle management customers make data-driven decisions. First, provide a brief summary of the relevant information. Then, offer up to five specific tips to address the user's question."
-        },
-        {
-            "role": "user",
-            "content": question
-        }
+        SystemMessage(
+            content="You are an expert assistant helping revenue cycle management customers make data-driven decisions. First, provide a brief summary of the relevant information. Then, offer up to five specific tips to address the user's question."
+        ),
+        HumanMessage(content=question)
     ]
-
-    response = llm.chat_completion(messages)
-    return response["choices"][0]["message"]["content"].strip()
+    response = llm(messages)
+    return response.content.strip()
 
 # Streamlit application
 st.title("Mede Decision Support Assistant")
@@ -110,7 +105,7 @@ use_rag = st.checkbox("Use Retrieval-Augmented Generation (RAG)", value=True)
 if user_input:
     with st.spinner("Generating response..."):
         if use_rag:
-            response = qa_with_rag.run(user_input)
+            response = qa_chain.run(user_input)
         else:
             response = generate_response_without_rag(user_input)
     st.write(response)
