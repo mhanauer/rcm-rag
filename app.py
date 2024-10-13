@@ -96,7 +96,7 @@ def generate_response_without_rag(question):
     return response.content.strip()
 
 # Streamlit application
-st.title("Mede Decision Support Assistant")
+st.title("RCM Decision Support Assistant")
 st.write("Ask me how I can help improve your Revenue Cycle Management (RCM) processes.")
 
 user_input = st.text_input("Your question:")
