@@ -2,4 +2,5 @@ langchain==0.3.3
 langchain-community==0.3.2
 openai==1.51.2
 tiktoken==0.8.0
+faiss-gpu==1.7.2
 
