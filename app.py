@@ -118,10 +118,12 @@ def generate_fake_data():
 
     for metric in metrics:
         if metric == 'ER Visits':
-            # Generate increasing data
+            # Generate increasing data with randomness
             start = 100
             end = 200
             trend = np.linspace(start, end, len(dates))
+            noise = np.random.normal(0, 5, len(dates))  # Adding randomness
+            trend += noise
             values.extend(trend)
             increasing.extend(['Yes'] * len(dates))
         else:
@@ -145,7 +147,10 @@ st.write("Ask me how I can help improve your Revenue Cycle Management (RCM) proc
 data = generate_fake_data()
 
 st.header("Metrics Over Time")
-metric_selected = st.selectbox("Select a metric to view its trend:", data['Metric'].unique())
+metrics = data['Metric'].unique()
+# Set "ER Visits" as the default selection
+default_index = np.where(metrics == 'ER Visits')[0][0]
+metric_selected = st.selectbox("Select a metric to view its trend:", metrics, index=default_index)
 
 metric_data = data[data['Metric'] == metric_selected]
 
