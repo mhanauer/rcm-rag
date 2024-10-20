@@ -1,11 +1,13 @@
 import streamlit as st
-from langchain.vectorstores import FAISS  # Adjust if necessary
+import pandas as pd
+import numpy as np
+from langchain.vectorstores import FAISS
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from langchain.schema import SystemMessage, HumanMessage  # For message types
+from langchain.schema import SystemMessage, HumanMessage
 
 # Load environment variables
 api_key = st.secrets["OPENAI_API_KEY"]
@@ -98,11 +100,88 @@ def generate_response_without_rag(question):
     response = llm(messages)
     return response.content.strip()
 
+# Function to generate fake data
+def generate_fake_data():
+    # Create date range for two years per month
+    dates = pd.date_range(end=pd.Timestamp.today(), periods=24, freq='M')
+
+    # Initialize DataFrame
+    data = pd.DataFrame({'Date': np.tile(dates, 3)})
+
+    # Metrics
+    metrics = ['Denials Rate', 'ER Visits', 'In-Patient Length of Stay']
+    data['Metric'] = np.repeat(metrics, len(dates))
+
+    # Generate data for each metric
+    values = []
+    increasing = []
+
+    for metric in metrics:
+        if metric == 'ER Visits':
+            # Generate increasing data
+            start = 100
+            end = 200
+            trend = np.linspace(start, end, len(dates))
+            values.extend(trend)
+            increasing.extend(['Yes'] * len(dates))
+        else:
+            # Generate random data without increasing trend
+            mean = 50
+            std_dev = 5
+            random_data = np.random.normal(mean, std_dev, len(dates))
+            values.extend(random_data)
+            increasing.extend(['No'] * len(dates))
+
+    data['Value'] = values
+    data['Increasing'] = increasing
+
+    return data
+
 # Streamlit application
 st.title("RCM Decision Support Assistant")
 st.write("Ask me how I can help improve your Revenue Cycle Management (RCM) processes.")
 
-user_input = st.text_input("Your question:")
+# Generate and display the fake data
+data = generate_fake_data()
+
+st.header("Metrics Over Time")
+metric_selected = st.selectbox("Select a metric to view its trend:", data['Metric'].unique())
+
+metric_data = data[data['Metric'] == metric_selected]
+
+st.line_chart(metric_data.set_index('Date')['Value'])
+
+st.write("Data Table:")
+st.write(metric_data[['Date', 'Metric', 'Value', 'Increasing']])
+
+# Identify the metric where the trend is increasing
+increasing_metric = data[data['Increasing'] == 'Yes']['Metric'].unique()
+
+if len(increasing_metric) > 0:
+    metric_with_increase = increasing_metric[0]  # Assuming only one metric is increasing
+else:
+    metric_with_increase = None
+
+# Modify the prompt to include the metric name where the trend is increasing
+if metric_with_increase:
+    default_question = f"The {metric_with_increase} metric is showing an increasing trend over the past two years. How can we address this?"
+else:
+    default_question = "No metrics are showing an increasing trend."
+
+st.subheader("Automated Playbook Generation")
+st.write(f"Metric with increasing trend: **{metric_with_increase if metric_with_increase else 'None'}**")
+
+if metric_with_increase:
+    # Use the metric name in the question to generate the playbook
+    generated_response = qa_chain.run(default_question)
+    st.write(generated_response)
+else:
+    st.write("No increasing trends detected.")
+
+# Allow the user to enter their own question
+st.subheader("Your Custom Playbook")
+user_input = st.text_input("Enter your question or issue:")
+
 use_rag = st.checkbox("Use Retrieval-Augmented Generation (RAG)", value=True)
 
 if user_input:
