@@ -149,7 +149,8 @@ data = generate_fake_data()
 st.header("Metrics Over Time")
 metrics = data['Metric'].unique()
 # Set "ER Visits" as the default selection
-default_index = np.where(metrics == 'ER Visits')[0][0]
+# Convert default_index to int to avoid StreamlitAPIException
+default_index = int(np.where(metrics == 'ER Visits')[0][0])
 metric_selected = st.selectbox("Select a metric to view its trend:", metrics, index=default_index)
 
 metric_data = data[data['Metric'] == metric_selected]
