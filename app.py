@@ -1,19 +1,24 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import anthropic
+from langchain_anthropic import ChatAnthropicMessages
 from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings import SentenceTransformerEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.schema import SystemMessage, HumanMessage
 
 # Load environment variables
-api_key = st.secrets["OPENAI_API_KEY"]
+api_key = st.secrets["ANTHROPIC_API_KEY"]
 
-# Initialize the OpenAI Chat Model
-llm = ChatOpenAI(openai_api_key=api_key, model_name="gpt-4")
+# Initialize the Anthropic Chat Model (Claude)
+llm = ChatAnthropicMessages(
+    model_name="claude-3-7-sonnet-20250219",  # Using Claude 3.7 Sonnet
+    anthropic_api_key=api_key,
+    temperature=0.7,
+)
 
 # Sample RCM knowledge base (you can replace this with your actual data)
 rcm_text = """
@@ -51,8 +56,8 @@ text_splitter = CharacterTextSplitter(
 )
 texts = text_splitter.split_text(rcm_text)
 
-# Create embeddings for the texts
-embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+# Create embeddings for the texts (using SentenceTransformers instead of OpenAI)
+embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
 docsearch = FAISS.from_texts(texts, embeddings)
 
 # Create a retriever
@@ -80,7 +85,6 @@ Answer:
 PROMPT = PromptTemplate(
     template=prompt_template, input_variables=["context", "question"]
 )
-
 # Create the RetrievalQA chain with the custom prompt
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
@@ -98,7 +102,7 @@ def generate_response_without_rag(question):
         HumanMessage(content=question)
     ]
     response = llm(messages)
-    return response.content.strip()
+    return response.content
 
 # Function to generate fake data
 def generate_fake_data():
